@@ -10,7 +10,7 @@ const initials = name => name.replace(/^(The|Jeff the|Doctor)\s+/i,'').split(/\s
 const slug = id => HERO_BY_ID[id]?.name || id;
 const KEY = 'rift-tactics-v1'; // keep existing user saves from v2
 const defaults = () => ({
-  draft:{mode:'basic',teamA:'TEAM ALPHA',teamB:'TEAM OMEGA',history:[]},
+  draft:{mode:'basic',teamA:'TEAM ALPHA',teamB:'TEAM OMEGA',history:[],comp:{a:[],b:[]}},
   boards:{},heroNotes:{},currentMap:'training',phase:'Opening attack'
 });
 let state = defaults();
@@ -19,6 +19,7 @@ try {
  if(stored && typeof stored==='object'){
   state = {...state,...stored};
   if(!state.draft || !Array.isArray(state.draft.history)) state.draft=defaults().draft;
+  if(!state.draft.comp || !state.draft.comp.a || !state.draft.comp.b) state.draft.comp={a:[],b:[]};
   if(!state.boards || typeof state.boards!=='object') state.boards={};
   if(!state.heroNotes || typeof state.heroNotes!=='object') state.heroNotes={};
   if(!MAPS.some(m=>m.id===state.currentMap))state.currentMap='training';
@@ -38,13 +39,14 @@ function avatar(hero){
 function miniAvatar(hero){return `<span class="mini-avatar portrait-avatar"><span class="avatar-fallback">${escapeHtml(initials(hero.name))}</span>${hero.portrait?`<img loading="lazy" src="${escapeHtml(hero.portrait)}" alt="" onerror="this.remove()"/>`:''}</span>`;}
 function roleDescription(hero){return ROLE_TACTICS[hero.role]?.summary || ''}
 function go(page){
- if(!['overview','draft','heroes','board'].includes(page))return;
+ if(!['overview','draft','comp','heroes','board'].includes(page))return;
  $$('.page').forEach(el=>el.classList.toggle('active',el.id==='page-'+page));
  $$('.nav-link').forEach(el=>el.classList.toggle('active',el.dataset.page===page));
- $('#breadcrumbPage').textContent=({overview:'COMMAND CENTER',draft:'DRAFT SIMULATOR',heroes:'HERO DATABASE',board:'STRATEGY BOARD'})[page];
+ $('#breadcrumbPage').textContent=({overview:'COMMAND CENTER',draft:'DRAFT SIMULATOR',comp:'COMP LINEUP',heroes:'HERO DATABASE',board:'STRATEGY BOARD'})[page];
  $('#sidebar').classList.remove('open');
  window.scrollTo({top:0,behavior:'auto'});
  if(page==='board')renderBoard();
+ if(page==='comp')renderComp();
 }
 $$('[data-page]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.page)));
 $$('[data-jump]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.jump)));
@@ -54,7 +56,7 @@ $('#statMaps').textContent=MAPS.filter(map=>map.image).length;
 
 /* -------------------------------- Draft room -------------------------------- */
 const draft=()=>state.draft;
-let draftSearch='',draftRole='All',freeTeam='a',freeAction='BAN',rankedTeam='a';
+let draftSearch='',draftRole='All',freeTeam='a',freeAction='BAN',rankedTeam='a',compTeam='a',compSelecting=false,compSearch='',compRole='All';
 const currentFormat=()=>DRAFT_FORMATS[draft().mode]||DRAFT_FORMATS.basic;
 const picks=(team,action)=>draft().history.filter(x=>x.team===team&&x.action===action);
 const banTarget = team => team==='a' ? 'b' : 'a';
@@ -108,14 +110,22 @@ function renderDraft(){
    return `<div class="draft-slot ${hero?'filled':''}">${hero?`${miniAvatar(hero)}<span class="slot-name">${escapeHtml(hero.name)}</span>`:`<span>${String(i+1).padStart(2,'0')}</span>`}</div>`;
   }).join(''):'<div class="no-locks">NO PROTECT PHASE IN THIS FORMAT</div>';
  }
+ if(d.mode==='ranked'){
+  d.comp.a=picks('a','PICK').map(x=>x.id);
+  d.comp.b=picks('b','PICK').map(x=>x.id);
+ }
  $$('.choice').forEach(b=>b.classList.toggle('active',b.dataset.team===freeTeam&&b.dataset.action===freeAction));
  const pool=HEROES.filter(h=>(draftRole==='All'||h.role===draftRole)&&h.name.toLowerCase().includes(draftSearch));
  $('#draftCount').textContent=`${pool.length}`;
  const [nextTeam,nextAction]=d.mode==='ranked'?[rankedTeam,'PICK']:d.mode==='free'?[freeTeam,freeAction]:turn;
+ $('#draftPoolTip').innerHTML='Tap a hero card to add it to the current draft. Tap the <strong>i</strong> button to view hero abilities.';
  $('#draftGrid').innerHTML=pool.map(hero=>{
   const entries=d.history.filter(x=>x.id===hero.id),entryLabel=entries.map(x=>`${x.team.toUpperCase()} · ${x.action==='LOCK'?'PROTECTED':'BAN'}`).join(' / ');
+  const compTeams=['a','b'].filter(team=>(d.comp[team]||[]).includes(hero.id));
+  const compLabel=compTeams.map(team=>`${team.toUpperCase()} · LINEUP`).join(' / ');
+  const labels=[entryLabel,compLabel].filter(Boolean).join(' / ');
   const disabled=d.mode==='ranked'?false:d.mode==='free'?false:complete||!canChooseHero(hero.id,nextTeam,nextAction,d.mode);
-  return `<div class="pool-tile"><button class="pool-card ${entries.length?'selected':''}" data-hero="${hero.id}" data-status="${escapeHtml(entryLabel)}" ${disabled?'disabled':''} title="${escapeHtml(hero.name)} · ${hero.role}"><span class="pool-role-tag">${ROLE_TACTICS[hero.role].abbreviation}</span>${avatar(hero)}<span class="pool-name">${escapeHtml(hero.name)}</span></button><button class="pool-info" data-info="${hero.id}" aria-label="View ${escapeHtml(hero.name)} ability information">i</button></div>`;
+  return `<div class="pool-tile"><button class="pool-card ${entries.length?'selected':''}" data-hero="${hero.id}" data-status="${escapeHtml(labels)}" ${disabled?'disabled':''} title="${escapeHtml(hero.name)} · ${hero.role}"><span class="pool-role-tag">${ROLE_TACTICS[hero.role].abbreviation}</span>${avatar(hero)}<span class="pool-name">${escapeHtml(hero.name)}</span></button><button class="pool-info" data-info="${hero.id}" aria-label="View ${escapeHtml(hero.name)} ability information">i</button></div>`;
  }).join('')||'<p class="muted">No heroes match your search.</p>';
  $$('.pool-card').forEach(b=>b.addEventListener('click',()=>chooseHero(b.dataset.hero)));
  $$('.pool-info').forEach(b=>b.addEventListener('click',()=>openHero(b.dataset.info)));
@@ -123,6 +133,20 @@ function renderDraft(){
 }
 function chooseHero(id){
  const d=draft(),format=currentFormat();if(!HERO_BY_ID[id])return;
+ if(compSelecting){
+  if(!d.comp) d.comp={a:[],b:[]};
+  const lineup=d.comp[compTeam]||[];
+  const index=lineup.indexOf(id);
+  if(index>=0) lineup.splice(index,1);
+  else if(lineup.length>=6){notify('This lineup is full. Remove a hero before adding another.');return;}
+  else lineup.push(id);
+  d.comp[compTeam]=lineup;
+  if(d.mode==='ranked'){
+   d.history=d.history.filter(x=>!(x.team===compTeam&&x.action==='PICK'));
+   lineup.forEach(heroId=>d.history.push({id:heroId,team:compTeam,action:'PICK'}));
+  }
+  save();renderDraft();return;
+ }
  if(d.mode==='ranked'){
   const existing=d.history.findIndex(x=>x.team===rankedTeam&&x.id===id&&x.action==='PICK');
   if(existing>=0)d.history.splice(existing,1);
@@ -145,17 +169,156 @@ function chooseHero(id){
 }
 $('#draftMode').addEventListener('change',e=>{
  if(draft().history.length&&!confirm('Switching draft format resets current bans and protections. Continue?')){e.target.value=draft().mode;return}
- draft().mode=e.target.value;draft().history=[];save();renderDraft();
+ draft().mode=e.target.value;draft().history=[];draft().comp={a:[],b:[]};compSelecting=false;save();renderDraft();
 });
 for(const [id,key] of [['teamAName','teamA'],['teamBName']])$('#'+id).addEventListener('input',e=>{draft()[key]=e.target.value;save();$('#draftTeamALabel').textContent=draft().teamA||'TEAM ALPHA';$('#draftTeamBLabel').textContent=draft().teamB||'TEAM OMEGA';const fmt=currentFormat();if(draft().mode==='ranked')$('#draftInstruction').textContent=turnTitle(rankedTeam,'PICK','ranked');else if(draft().mode==='free')$('#draftInstruction').textContent=turnTitle(freeTeam,freeAction,draft().mode);else if(draft().history.length<fmt.turns.length){const [team,action]=fmt.turns[draft().history.length];$('#draftInstruction').textContent=turnTitle(team,action,draft().mode)}});
-$('#draftReset').addEventListener('click',()=>{if(draft().history.length&&!confirm('Reset all bans and protections?'))return;draft().history=[];save();renderDraft();notify('Draft reset.');});
+$('#draftReset').addEventListener('click',()=>{
+ if((draft().history.length||draft().comp.a.length||draft().comp.b.length)&&!confirm('Reset all bans, protections and lineup picks?'))return;
+ draft().history=[];draft().comp={a:[],b:[]};compSelecting=false;save();renderDraft();notify('Draft reset.');
+});
 $('#draftUndo').addEventListener('click',()=>{draft().history.pop();save();renderDraft();});
 $('#draftSearch').addEventListener('input',e=>{draftSearch=e.target.value.trim().toLowerCase();renderDraft()});
 $('#draftRole').addEventListener('change',e=>{draftRole=e.target.value;renderDraft()});
 $$('.choice').forEach(el=>el.addEventListener('click',()=>{freeTeam=el.dataset.team;freeAction=el.dataset.action;renderDraft()}));
-$$('.ranked-side').forEach(el=>el.addEventListener('click',()=>{rankedTeam=el.dataset.team;renderDraft()}));
+$$('.ranked-side').forEach(el=>el.addEventListener('click',()=>{rankedTeam=el.dataset.team;compSelecting=false;renderDraft()}));
+
+function renderComp(){
+ const d=draft();
+ if(!d.comp) d.comp={a:[],b:[]};
+ const activeName=compTeam==='a'?(d.teamA||'TEAM ALPHA'):(d.teamB||'TEAM OMEGA');
+ $$('#compTeamSwitch button').forEach(b=>b.classList.toggle('active',b.dataset.team===compTeam));
+ $('#compActiveTeam').textContent=activeName.toUpperCase();
+ const ids=d.comp[compTeam]||[];
+ $('#compPickCount').textContent=`${ids.length} / 6 HEROES`;
+ $('#compPickInstruction').textContent=`Tap a hero to add it to ${activeName}. Tap an added hero again to remove it.`;
+ $('#compSelectedList').innerHTML=Array.from({length:6},(_,i)=>{
+  const hero=HERO_BY_ID[ids[i]];
+  return hero
+   ?`<button class="comp-selected-slot" data-remove="${hero.id}" title="Remove ${escapeHtml(hero.name)}">${miniAvatar(hero)}<span><small>0${i+1}</small><strong>${escapeHtml(hero.name)}</strong></span><b>×</b></button>`
+   :`<div class="comp-selected-slot empty"><span><small>0${i+1}</small><strong>Open slot</strong></span></div>`;
+ }).join('');
+ $$('[data-remove]').forEach(b=>b.addEventListener('click',()=>toggleCompHero(b.dataset.remove)));
+ $('#compSummary').innerHTML=['a','b'].map(team=>{
+  const name=team==='a'?(d.teamA||'TEAM ALPHA'):(d.teamB||'TEAM OMEGA');
+  const bans=picks(team,'BAN'),locks=picks(team,'LOCK');
+  const renderChips=(entries,limit,type)=>{
+   return Array.from({length:limit},(_,i)=>{
+    const hero=HERO_BY_ID[entries[i]?.id];
+    return hero?`<span class="comp-summary-chip ${type}">${miniAvatar(hero)}${escapeHtml(hero.name)}</span>`:`<span class="comp-summary-chip empty">${type==='save'?'SAVE':'BAN'} ${i+1}</span>`;
+   }).join('');
+  };
+  return `<article class="comp-summary-team ${team==='a'?'blue':'red'}">
+   <h3>${escapeHtml(name)}</h3>
+   <div><small>BANS</small><div class="comp-summary-chips">${renderChips(bans,currentFormat().banLimit,'ban')}</div></div>
+   <div><small>SAVES</small><div class="comp-summary-chips">${renderChips(locks,currentFormat().lockLimit,'save')}</div></div>
+  </article>`;
+ }).join('');
+ const pool=HEROES.filter(h=>(compRole==='All'||h.role===compRole)&&h.name.toLowerCase().includes(compSearch));
+ $('#compCount').textContent=pool.length;
+ $('#compGrid').innerHTML=pool.map(hero=>{
+  const selected=(d.comp[compTeam]||[]).includes(hero.id);
+  return `<div class="pool-tile comp-pool-tile"><button class="pool-card ${selected?'selected active-comp-pick':''}" data-comp-hero="${hero.id}" title="${selected?'Remove':'Add'} ${escapeHtml(hero.name)}"><span class="pool-role-tag">${ROLE_TACTICS[hero.role].abbreviation}</span>${avatar(hero)}<span class="pool-name">${escapeHtml(hero.name)}</span><span class="lineup-card-action ${selected?'remove':''}">${selected?'✓ ADDED — TAP TO REMOVE':'+ ADD TO LINEUP'}</span></button><button class="pool-info" data-info="${hero.id}" aria-label="View ${escapeHtml(hero.name)} ability information">i</button></div>`;
+ }).join('')||'<p class="muted">No heroes match your search.</p>';
+ $$('[data-comp-hero]').forEach(b=>b.addEventListener('click',()=>toggleCompHero(b.dataset.compHero)));
+ $$('#compGrid [data-info]').forEach(b=>b.addEventListener('click',()=>openHero(b.dataset.info)));
+}
+function toggleCompHero(id){
+ const d=draft();
+ if(!d.comp) d.comp={a:[],b:[]};
+ const lineup=d.comp[compTeam]||[];
+ const index=lineup.indexOf(id);
+ if(index>=0) lineup.splice(index,1);
+ else if(lineup.length>=6){notify('This lineup is full. Remove a hero before adding another.');return;}
+ else lineup.push(id);
+ d.comp[compTeam]=lineup;
+ if(d.mode==='ranked'){
+  d.history=d.history.filter(x=>!(x.team===compTeam&&x.action==='PICK'));
+  lineup.forEach(heroId=>d.history.push({id:heroId,team:compTeam,action:'PICK'}));
+ }
+ save();renderComp();
+}
+$$('#compTeamSwitch button').forEach(el=>el.addEventListener('click',()=>{compTeam=el.dataset.team;renderComp()}));
+$('#compSearch').addEventListener('input',e=>{compSearch=e.target.value.trim().toLowerCase();renderComp()});
+$('#compRole').addEventListener('change',e=>{compRole=e.target.value;renderComp()});
+$('#clearCompTeam').addEventListener('click',()=>{
+ const d=draft();
+ d.comp[compTeam]=[];
+ if(d.mode==='ranked') d.history=d.history.filter(x=>!(x.team===compTeam&&x.action==='PICK'));
+ save();renderComp();notify('Active lineup cleared.');
+});
+$('#clearCompLineups').addEventListener('click',()=>{
+ if(!confirm('Clear both 6-hero lineups?'))return;
+ draft().comp={a:[],b:[]};
+ if(draft().mode==='ranked') draft().history=draft().history.filter(x=>x.action!=='PICK');
+ save();renderComp();notify('Both lineups cleared.');
+});
+
+function exportDraftPlan(){
+ const d=draft();
+ const out=document.createElement('canvas');
+ out.width=1400;out.height=900;
+ const c=out.getContext('2d');
+ if(!c){notify('Image export failed.');return;}
+ c.fillStyle='#0b0d12';c.fillRect(0,0,out.width,out.height);
+ c.fillStyle='#151820';c.fillRect(40,40,1320,820);
+ c.fillStyle='#c9fc69';c.fillRect(40,40,1320,12);
+ c.fillStyle='#eef0f3';c.font='900 34px Arial';c.fillText('RIFT TACTICS / DRAFT PLAN',82,112);
+ c.fillStyle='#9498a5';c.font='700 16px Arial';c.fillText((currentFormat().name||'Draft').toUpperCase(),82,145);
+ c.textAlign='right';c.fillStyle='#62b8ff';c.fillText((d.teamA||'TEAM ALPHA').toUpperCase(),680,145);
+ c.fillStyle='#ff6a77';c.fillText((d.teamB||'TEAM OMEGA').toUpperCase(),1318,145);
+ c.textAlign='left';
+
+ function sectionTitle(team,x,title,color){
+  c.fillStyle=color;c.fillRect(x,178,570,44);
+  c.fillStyle='#0b0d12';c.font='900 18px Arial';c.fillText(title,x+18,207);
+  c.fillStyle='#dfe4ea';c.font='800 15px Arial';
+ }
+ function drawChip(x,y,w,h,id,color,label){
+  const hero=HERO_BY_ID[id];
+  c.fillStyle='#20252f';c.fillRect(x,y,w,h);
+  c.strokeStyle='#343b48';c.strokeRect(x+.5,y+.5,w-1,h-1);
+  c.fillStyle=hero?color:'#626775';c.beginPath();c.arc(x+34,y+h/2,20,0,Math.PI*2);c.fill();
+  c.fillStyle='#ffffff';c.textAlign='center';c.font='900 16px Arial';
+  c.fillText(hero?initials(hero.name):'—',x+34,y+h/2+6);
+  c.textAlign='left';c.fillStyle='#eef0f3';c.font='800 14px Arial';
+  c.fillText(hero?hero.name:'Open slot',x+64,y+h/2+5);
+  if(hero&&label){c.fillStyle='#9498a5';c.font='700 11px Arial';c.fillText(label,x+64,y+h/2+21);}
+ }
+ for(const team of ['a','b']){
+  const x=team==='a'?82:748,sideName=team==='a'?(d.teamA||'TEAM ALPHA'):(d.teamB||'TEAM OMEGA');
+  const color=team==='a'?'#62b8ff':'#ff6a77';
+  sectionTitle(team,x,`${team==='a'?'A':'B'}  /  ${sideName.toUpperCase()} · BANS & SAVES`,color);
+  const bans=picks(team,'BAN'),locks=picks(team,'LOCK');
+  c.fillStyle='#9498a5';c.font='800 12px Arial';c.fillText('BANS',x,250);c.fillText('SAVES / PROTECTS',x+292,250);
+  for(let i=0;i<4;i++) drawChip(x,262+i*43,268,36,bans[i]?.id,'#ff6a77','BAN');
+  for(let i=0;i<3;i++) drawChip(x+292,262+i*43,268,36,locks[i]?.id,'#c9fc69','SAVE');
+  c.fillStyle=color;c.fillRect(x,456,570,44);
+  c.fillStyle='#0b0d12';c.font='900 18px Arial';c.fillText('6-HERO COMP LINEUP',x+18,485);
+  const ids=d.comp[team]||[];
+  for(let i=0;i<6;i++){
+   const col=i%3,row=Math.floor(i/3);
+   drawChip(x+col*190,516+row*112,176,92,ids[i],color,String(i+1).padStart(2,'0'));
+  }
+ }
+ c.fillStyle='#9498a5';c.font='700 12px Arial';c.textAlign='left';
+ c.fillText('Created with Rift Tactics · Fan-made planning tool',82,830);
+ c.textAlign='right';c.fillText(new Date().toLocaleDateString(),1318,830);
+
+ out.toBlob(blob=>{
+  if(!blob){notify('Image export failed.');return;}
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`rift-tactics-draft-${Date.now()}.png`;
+  document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),6000);
+  notify('Draft plan exported as a PNG photo.');
+ },'image/png');
+}
+$('#draftExport').addEventListener('click',exportDraftPlan);
+$('#compExport').addEventListener('click',exportDraftPlan);
 if(!DRAFT_FORMATS[state.draft.mode])state.draft.mode='basic';
 renderDraft();
+renderComp();
 
 /* ------------------------------- Hero database ------------------------------- */
 let heroRole='All',heroSearch='';

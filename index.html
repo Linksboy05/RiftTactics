@@ -19,8 +19,9 @@
     <nav class="nav-list" aria-label="Main navigation">
       <button class="nav-link active" data-page="overview"><span class="nav-icon">◫</span> Command Center <span class="nav-key">01</span></button>
       <button class="nav-link" data-page="draft"><span class="nav-icon">⌗</span> Draft Simulator <span class="nav-key">02</span></button>
-      <button class="nav-link" data-page="heroes"><span class="nav-icon">♜</span> Hero Database <span class="nav-key">03</span></button>
-      <button class="nav-link" data-page="board"><span class="nav-icon">⌁</span> Strategy Board <span class="nav-key">04</span></button>
+      <button class="nav-link" data-page="comp"><span class="nav-icon">◇</span> Comp Lineup <span class="nav-key">03</span></button>
+      <button class="nav-link" data-page="heroes"><span class="nav-icon">♜</span> Hero Database <span class="nav-key">04</span></button>
+      <button class="nav-link" data-page="board"><span class="nav-icon">⌁</span> Strategy Board <span class="nav-key">05</span></button>
     </nav>
     <div class="side-section side-section-second">YOUR TOOLKIT</div>
     <div class="side-info"><span class="pulse"></span><div><strong>Local workspace</strong><small>Autosaved in this browser</small></div></div>
@@ -40,7 +41,7 @@
     </section>
 
     <section class="page" id="page-draft">
-      <div class="page-title-row"><div><span class="eyebrow">MODULE 01 / DRAFT SIMULATOR</span><h1>THE DRAFT ROOM<span class="heading-dot">.</span></h1><p>Practice MRC / Ignite drafts—or build team compositions in Ranked mode without bans.</p></div><div class="page-actions"><button class="btn ghost-btn" id="draftUndo">↶ UNDO</button><button class="btn outline-btn" id="draftReset">RESET DRAFT ↻</button></div></div>
+      <div class="page-title-row"><div><span class="eyebrow">MODULE 01 / DRAFT SIMULATOR</span><h1>THE DRAFT ROOM<span class="heading-dot">.</span></h1><p>Practice MRC / Ignite drafts—or build team compositions in Ranked mode without bans.</p></div><div class="page-actions"><button class="btn ghost-btn" id="draftUndo">↶ UNDO</button><button class="btn outline-btn" id="draftReset">RESET DRAFT ↻</button><button class="btn lime-btn" id="draftExport">EXPORT PLAN ⇩</button></div></div>
       <div class="draft-control-panel"><div class="control-group"><label for="draftMode">DRAFT TYPE</label><select id="draftMode"><option value="basic">MRC / Tournament Basic</option><option value="ignite">Ignite / Tournament Advanced</option><option value="ranked">Ranked Lineup Planner · NO BANS</option><option value="free">Freeform practice</option></select></div><div class="control-group"><label for="teamAName">TEAM ALPHA</label><input id="teamAName" maxlength="26" value="TEAM ALPHA" /></div><div class="control-group"><label for="teamBName">TEAM OMEGA</label><input id="teamBName" maxlength="26" value="TEAM OMEGA" /></div></div>
       <div class="draft-tutorial" aria-label="Draft tutorial"><div class="draft-tutorial-top"><div><span class="eyebrow">START HERE / DRAFT SCHOOL</span><h2>HOW BANS &amp; LOCKS WORK</h2><p>You don't need tournament experience. Pick a format above and follow the highlighted action below. Ranked mode has no bans in this planner.</p></div><span class="lesson-tag">BEGINNER FRIENDLY</span></div><div class="tutorial-cards"><div><b class="tutorial-icon red-text">✕</b><strong>BAN</strong><p>Remove a hero from play. In MRC and Ranked the hero is unavailable to both teams; in Ignite the ban targets the opposing team only.</p></div><div><b class="tutorial-icon lime-text">◇</b><strong>LOCK / PROTECT</strong><p>Protect a hero from later bans. It doesn't mean you're forced to play them; it keeps them available for your team.</p></div><div><b class="tutorial-icon blue-text">↳</b><strong>FOLLOW THE ORDER</strong><p>The simulator tells you which team acts next. Choose any available hero below to record that decision. Use Undo or Reset anytime.</p></div></div><div class="format-explainer"><div><strong id="formatGuideTitle">MRC / Tournament Basic</strong><p id="formatGuideDescription"></p><p class="format-detail" id="formatGuideDetail"></p><a id="formatSourceLink" href="https://www.marvelrivals.com/news/20250701/42745_1229373.html" target="_blank" rel="noopener noreferrer">CHECK FORMAT REFERENCE ↗</a></div><div class="format-info"><span class="eyebrow">FULL PICK / BAN SEQUENCE</span><div class="draft-turn-list" id="draftTurnList"></div></div></div></div>
       <div class="draft-status"><span class="eyebrow">CURRENT PHASE</span><div class="draft-status-main"><div><strong id="draftStep">STEP 01 / 10</strong><span id="draftInstruction">TEAM ALPHA · BAN A HERO</span></div><div class="phase-track" id="phaseTrack"></div></div><p id="draftExplanation">Tournament (Basic) follows the official published A/B ban and lock sequence. Locked heroes cannot be banned later.</p></div>
@@ -48,7 +49,25 @@
       <div class="draft-pool-header"><div><span class="eyebrow">HERO SELECTION</span><h2>CHOOSE A HERO <span id="draftCount" class="count-badge">55</span></h2></div><div class="filters"><input type="search" id="draftSearch" placeholder="⌕  Search heroes..." /><select id="draftRole"><option value="All">All roles</option><option value="Vanguard">Vanguard</option><option value="Duelist">Duelist</option><option value="Strategist">Strategist</option><option value="Flex">Flex</option></select></div></div>
       <div id="rankedControls" class="ranked-controls" hidden><span class="eyebrow">NO-BAN TEAM COMPOSITION</span><p>Choose a team, then tap heroes to add or remove them. Each side can have 6 heroes. This is a strategy lineup planner, not the in-game Ranked ban sequence.</p><div class="toggle-cluster"><button class="ranked-side active" data-team="a">🔵 TEAM ALPHA</button><button class="ranked-side" data-team="b">🔴 TEAM OMEGA</button></div></div>
       <div id="freeformControls" class="freeform-controls" hidden><span>FREEFORM ACTION</span><div class="toggle-cluster"><button class="choice active" data-team="a" data-action="BAN">A · BAN</button><button class="choice" data-team="a" data-action="LOCK">A · LOCK</button><button class="choice" data-team="b" data-action="BAN">B · BAN</button><button class="choice" data-team="b" data-action="LOCK">B · LOCK</button></div><small>Click a selected hero again to remove it.</small></div>
-      <div class="draft-pool-tip">Tap a hero card to add it to the current draft or lineup. Tap the <strong>i</strong> button on a card to view that hero’s abilities.</div><div class="hero-pool" id="draftGrid"></div>
+      <div class="draft-pool-tip" id="draftPoolTip">Tap a hero card to add it to the current draft. Tap the <strong>i</strong> button on a card to view that hero’s abilities.</div><div class="hero-pool" id="draftGrid"></div>
+    </section>
+
+    <section class="page" id="page-comp">
+      <div class="page-title-row"><div><span class="eyebrow">MODULE 02 / COMP LINEUP</span><h1>BUILD YOUR LINEUP<span class="heading-dot">.</span></h1><p>Choose six heroes for each team, alongside the bans and saves from Draft Simulator.</p></div><div class="page-actions"><button class="btn ghost-btn" id="clearCompLineups">CLEAR BOTH</button><button class="btn lime-btn" id="compExport">EXPORT PLAN ⇩</button></div></div>
+      <div class="comp-workspace">
+        <div class="comp-side-panel">
+          <div class="comp-team-switch" id="compTeamSwitch"><button class="active" data-team="a"><span>1</span> TEAM ALPHA</button><button data-team="b"><span>2</span> TEAM OMEGA</button></div>
+          <div class="comp-active-banner"><span>NOW BUILDING</span><strong id="compActiveTeam">TEAM ALPHA</strong><small id="compPickCount">0 / 6 HEROES</small></div>
+          <div class="comp-selected-list" id="compSelectedList"></div>
+          <button class="btn ghost-btn clear-team-btn" id="clearCompTeam">CLEAR ACTIVE TEAM</button>
+        </div>
+        <div class="comp-main-panel">
+          <div class="comp-summary" id="compSummary"></div>
+          <div class="draft-pool-header comp-pool-header"><div><span class="eyebrow">HERO ROSTER</span><h2>PICK YOUR HEROES <span id="compCount" class="count-badge">55</span></h2></div><div class="filters"><input type="search" id="compSearch" placeholder="⌕  Search heroes..." /><select id="compRole"><option value="All">All roles</option><option value="Vanguard">Vanguard</option><option value="Duelist">Duelist</option><option value="Strategist">Strategist</option><option value="Flex">Flex</option></select></div></div>
+          <div class="comp-pick-instruction" id="compPickInstruction">Tap a hero to add it to Team Alpha. Tap an added hero again to remove it.</div>
+          <div class="hero-pool" id="compGrid"></div>
+        </div>
+      </div>
     </section>
 
     <section class="page" id="page-heroes">
